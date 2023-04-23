@@ -3,13 +3,21 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
 
-struct data_stream
+struct thread_data
 {
-	char* data
-	char finished;
+	char* data;
+	int key;
 };
 
+void* encrypt_thread(void* arg)
+{
+	struct thread_data* data = (struct thread_data*)arg;
+	encrypt(data->data, data->key);
+	printf("encripted data: %s\n", data->data);
+	pthread_exit(NULL);
+}
 
 int main(int argc, char *argv[])
 {
@@ -19,6 +27,7 @@ int main(int argc, char *argv[])
 	    printf("!! data more than 1024 char will be ignored !!\n");
 	    return 0;
 	}
+
 	long number_of_processors = sysconf(_SC_NPROCESSORS_ONLN);
 	printf("\n%ld", number_of_processors);
 
@@ -29,7 +38,9 @@ int main(int argc, char *argv[])
 	int counter = 0;
 	int dest_size = 1024;
 	char data[dest_size]; 
-	
+
+	pthread_t tid;
+	struct thread_data tdata;
 
 	while ((c = getchar()) != EOF)
 	{
@@ -37,8 +48,9 @@ int main(int argc, char *argv[])
 	  counter++;
 
 	  if (counter == 1024){
-		encrypt(data,key);
-		printf("encripted data: %s\n",data);
+		tdata.data = strdup(data); // create a copy of the data buffer
+		tdata.key = key;
+		pthread_create(&tid, NULL, encrypt_thread, (void*)&tdata);
 		counter = 0;
 	  }
 	}
@@ -48,9 +60,10 @@ int main(int argc, char *argv[])
 		char lastData[counter];
 		lastData[0] = '\0';
 		strncat(lastData, data, counter);
-		encrypt(lastData,key);
-		printf("encripted data:\n %s\n",lastData);
+		tdata.data = strdup(lastData); // create a copy of the data buffer
+		tdata.key = key;
+		pthread_create(&tid, NULL, encrypt_thread, (void*)&tdata);
 	}
 
-	return 0;
+	pthread_exit(NULL);
 }
