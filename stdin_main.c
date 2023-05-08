@@ -10,18 +10,18 @@
 int key = 0;
 struct data_stream
 {
-	char* data;
-	char finished;
+	char** data;
+	char finished = 0;
 };
 
 
 // The function that each thread will execute
 void *encrypt_thread(void *args) {
     // Cast the arguments back to their original types
-    char* input = (char*)args;
+    char* input = args->data;
     // Call the encrypt function
     encrypt(input, key);
-
+	args->finished = 1;
     // Exit the thread
     pthread_exit(NULL);
 }
@@ -30,13 +30,17 @@ void *encrypt_thread(void *args) {
 int main(int argc, char *argv[])
 {
 	int number_of_processors = sysconf(_SC_NPROCESSORS_ONLN);
-
+	FILE *fp;
+	fp = fopen("output.txt", "w");
 	printf("\n%d", number_of_processors);
 
 	pthread_t* threads = malloc(number_of_processors*sizeof(pthread_t));
 	char thread_count = 0;
-	char *inputs = malloc(number_of_processors*sizeof(char)*1024);
-
+	char **inputs = malloc(number_of_processors * sizeof(char *));
+	data_stream data_s = malloc(number_of_processors * sizeof(data_stream));
+	for (int i = 0; i < number_of_processors; i++) {
+		inputs[i] = malloc(1024 * sizeof(char));
+	}
 	if (argc != 2)
 	{
 	    printf("usage: key < file \n");
@@ -52,16 +56,20 @@ int main(int argc, char *argv[])
 	int counter = 0;
 	int dest_size = 1024;
 	char data[dest_size]; 
-	
+	data[0] = '\0';
 
 	while ((c = getchar()) != EOF)
 	{
-	  data[counter] = c;
 	  counter++;
-
+	  char a[1];
+	  a[0] = c;
+	  strcat(data, a);
 	  if (counter == 1024){
-		inputs[thread_count] = data;
-		//open new thread
+		a[0] = '\0';
+		strcat(data, a);
+		strcpy(inputs[thread_count], data);
+		
+		//open new thread59
 		int rc = pthread_create(&threads[thread_count], NULL, encrypt_thread, (void *) &inputs[thread_count]);
 		if(thread_count >= 1)
 			pthread_join(threads[thread_count - 1], NULL);
@@ -76,9 +84,13 @@ int main(int argc, char *argv[])
 			thread_count = 0;
 		}else
 			thread_count++;
-		// encrypt(data,key);
+		for(int t = 0; t < number_of_processors; t++)
+		{
+			fputs(inputs[t], fp);
+		}
 		printf("encripted data: %s\n",data);
 		counter = 0;
+		strcpy(data, "");// this will reset data string
 	  }
 	}
 	
@@ -88,8 +100,15 @@ int main(int argc, char *argv[])
 		lastData[0] = '\0';
 		strncat(lastData, data, counter);
 		encrypt(lastData,key);
+		fputs(lastData, fp);
 		printf("encripted data:\n %s\n",lastData);
 	}
+
+	fclose(fp);
+	for (int i = 0; i < number_of_processors; i++) {
+    free(inputs[i]);
+	}
+	free(inputs);
 
 	return 0;
 }
