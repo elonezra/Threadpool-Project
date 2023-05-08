@@ -18,9 +18,7 @@ struct data_stream
 // The function that each thread will execute
 void *encrypt_thread(void *args) {
     // Cast the arguments back to their original types
-    char *input = (args)[0];
-    
-
+    char* input = (char*)args;
     // Call the encrypt function
     encrypt(input, key);
 
@@ -63,9 +61,10 @@ int main(int argc, char *argv[])
 
 	  if (counter == 1024){
 		inputs[thread_count] = data;
-		int rc = pthread_create(&threads[thread_count], NULL, encrypt, (void *) &inputs[thread_count]);
-		// if(thread_count >= 1)
-		// 	pthread_join(threads[thread_count - 1], NULL);
+		//open new thread
+		int rc = pthread_create(&threads[thread_count], NULL, encrypt_thread, (void *) &inputs[thread_count]);
+		if(thread_count >= 1)
+			pthread_join(threads[thread_count - 1], NULL);
 
         if (rc)
         {
